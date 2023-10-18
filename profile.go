@@ -143,6 +143,7 @@ var profilePublishCmd = &cobra.Command{
             }
         }
     },
+
 }
 
 func displayMenu(user *UserArgs) {
