@@ -18,8 +18,8 @@ type UserArgs struct {
     Banner string `json:"banner" yaml:"banner"`
     About string `json:"about" yaml:"about"`
     Website string `json:"website" yaml:"website"`
-    LNAddress string `json:"lud16" yaml:"lud16"` // ln address
-    LNURL string `json:"lud06" yaml:"lud06"` // lnurl1
+    LUD16 string `json:"lud16" yaml:"lud16"` // ln address
+    LUD06 string `json:"lud06" yaml:"lud06"` // lnurl1
 }
 
 var profilePublishCmd = &cobra.Command{
