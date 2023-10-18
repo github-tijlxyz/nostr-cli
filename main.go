@@ -29,25 +29,41 @@ var eventCmd = &cobra.Command{
     Use: "event <command>",
 }
 
-/*var relayCmd = &cobra.Command{
-    Use: "relay <command>",
-}*/
+var relaysCmd = &cobra.Command{
+    Use: "relays [command]",
+    Run: relaysViewCmd.Run,
+}
+
+var profileCmd = &cobra.Command{
+    Use: "profile [command]",
+    Run: profilePublishCmd.Run,
+}
 
 func init() {
     rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/nostr-cli/config.yaml)")
-    rootCmd.PersistentFlags().StringVar(&customRelays, "relays", "", "set relays (by default will use what is in config.yaml)")
+    //rootCmd.PersistentFlags().StringVar(&customRelays, "relays", "", "set relays (by default will use what is in config.yaml)")
     
     keyCmd.AddCommand(setKeyCmd)
     genKeyCmd.Flags().BoolVar(&genKeySet, "set", false, "directly set the generated key")
-    genKeyCmd.Flags().BoolVar(&genKeyDontSet, "dontset", false, "dont ask for setting the generated key")
+    genKeyCmd.Flags().BoolVar(&genKeyDontSet, "dont-set", false, "dont ask for setting the generated key")
     keyCmd.AddCommand(genKeyCmd)
     keyCmd.AddCommand(viewKeyCmd)
+    viewKeyCmd.Flags().BoolVar(&viewKeyShowPrivate, "show-private", false, "show the private key")
+    viewKeyCmd.Flags().BoolVar(&viewKeyViewQR, "qr", false, "print the npub as QR in terminal")
     rootCmd.AddCommand(keyCmd)
 
     eventCmd.AddCommand(signEventCmd)
     eventCmd.AddCommand(verifyEventCmd)
     eventCmd.AddCommand(publishEventCmd)
     rootCmd.AddCommand(eventCmd)
+
+    rootCmd.AddCommand(profileCmd)
+
+    relaysCmd.AddCommand(relaysSetCmd)
+    relaysCmd.AddCommand(relaysViewCmd)
+    relaysCmd.AddCommand(relaysAddCmd)
+    relaysCmd.AddCommand(relaysRmCmd)
+    rootCmd.AddCommand(relaysCmd)
 }
 
 func initConfig() error {

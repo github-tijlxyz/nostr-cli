@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/mdp/qrterminal/v3"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
 	"github.com/spf13/cobra"
@@ -12,8 +14,8 @@ import (
 
 var genKeySet bool
 var genKeyDontSet bool
-//var viewKeyViewQR bool 
-//var viewKeyType string
+var viewKeyViewQR bool 
+var viewKeyShowPrivate bool
 
 var genKeyCmd = &cobra.Command{
     Use: "generate",
@@ -128,18 +130,25 @@ func viewKey (key string, nip19convert bool) {
         fmt.Println("something went wrong", err)
         return
     }
-    fmt.Println("key:")
-    if sk != "" {
-        fmt.Println("sk:", sk)
-    }
-    if nsec != "" {
-        fmt.Println("nsec:", nsec)
-    }
-    if pk != "" {
-        fmt.Println("pk:", pk)
-    }
-    if npub != "" {
-        fmt.Println("npub:", npub)
+    if viewKeyViewQR == true {
+        fmt.Print("\n")
+        qrterminal.Generate(npub, qrterminal.L, os.Stdout)
+        fmt.Print("\n")
+    } else {
+        if sk != "" {
+            fmt.Println("pk:", pk)
+        }
+        if nsec != "" {
+            fmt.Println("npub:", npub)
+        }
+        if nip19convert == true || viewKeyShowPrivate == true {
+            if pk != "" {
+                fmt.Println("sk:", sk)
+            }
+            if npub != "" {
+                fmt.Println("nsec:", nsec)
+            }
+        }
     }
 }
 
@@ -180,7 +189,7 @@ func setKey (arg string) {
         return
     }
 
-    fmt.Println("private key set to:", key)
+    fmt.Println("private key set")
 }
 
 //func accessKey () string {
