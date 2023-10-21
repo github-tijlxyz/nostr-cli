@@ -51,7 +51,7 @@ var profilePublishCmd = &cobra.Command{
                     return
                 }
 
-                if option != "w" {
+                if option == "w" || option == "wq" {
                     // Publish to relays
                     jsonData, err := json.Marshal(user)
                     if err != nil {

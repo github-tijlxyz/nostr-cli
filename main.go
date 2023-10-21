@@ -18,9 +18,10 @@ var (
     relays []string
 )
 
-var rootCmd = &cobra.Command{
+var rootCmd = &cobra.Command {
     Use: "nostr-cli [command] [subcommand]",
     Short: "A command line interface for nostr",
+    Version: "0.1.1",
     PersistentPreRunE: func (cmd *cobra.Command, args []string) error {
         return initConfig()
     },
@@ -50,23 +51,6 @@ var feedCmd = &cobra.Command{
     Run: feedSubCmd.Run,
 }
 
-/*var configprofileCmd = &cobra.Command{
-    Use: "profile <config profile to activate>",
-    Run: func(cmd *cobra.Command, args []string) {
-        arg := args[0]
-        if arg == "" {
-            fmt.Println("missing args")
-            return
-        }
-        viper.Set("active", arg)
-        err := viper.WriteConfig()
-        if err != nil {
-            fmt.Println("error writing config:", err)
-            return
-        }
-    },
-}*/
-
 var configCmd = &cobra.Command{
     Use: "config",
     Run: func(cmd *cobra.Command, args []string) {
@@ -94,7 +78,7 @@ var configCmd = &cobra.Command{
 func init() {
     rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/nostr-cli/config.yaml)")
     rootCmd.PersistentFlags().StringVar(&customRelays, "relays", "", "set relays (by default will use what is in config.yaml)")
-    
+
     keyCmd.AddCommand(setKeyCmd)
     genKeyCmd.Flags().BoolVar(&genKeySet, "set", false, "directly set the generated key")
     genKeyCmd.Flags().BoolVar(&genKeyDontSet, "dont-set", false, "dont ask for setting the generated key")
