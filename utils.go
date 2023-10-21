@@ -6,18 +6,16 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/viper"
 )
 
 func getPublicKey () string {
-    sk := viper.GetString("key")
-    pk, err := nostr.GetPublicKey(sk)
-    if err != nil {
-        fmt.Println("cannot get key from config")
+    publicKey := viper.GetString("key.public")
+    if publicKey == "" {
+        fmt.Println("key not set")
         return ""
     }
-    return pk
+    return publicKey
 }
 
 func padString (input string, length int) string {
@@ -35,9 +33,9 @@ func getUserInput (prompt string) string {
 }
 
 func truncateString (s string) string {
-    l := 40
-    if len(s) > l {
-        return s[:l-3] + "..."
-    }
+    //l := 40
+    //if len(s) > l {
+    //    return s[:l-3] + "..."
+    //}
     return s
 }

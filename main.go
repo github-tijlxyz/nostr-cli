@@ -7,13 +7,15 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+    "os/exec"
 )
 
 var cfgFile string
+//var cfgProfile string
 var customRelays string
 
 var rootCmd = &cobra.Command{
-    Use: "nostr-cli <command> [subcommand]",
+    Use: "nostr-cli [command] [subcommand]",
     Short: "A command line interface for nostr",
     PersistentPreRunE: func (cmd *cobra.Command, args []string) error {
         return initConfig()
@@ -34,9 +36,55 @@ var relaysCmd = &cobra.Command{
     Run: relaysViewCmd.Run,
 }
 
-var profileCmd = &cobra.Command{
-    Use: "profile [command]",
+var metaCmd = &cobra.Command{
+    Use: "metadata [command]",
     Run: profilePublishCmd.Run,
+}
+
+var feedCmd = &cobra.Command{
+    Use: "feed [command]",
+    Run: feedSubCmd.Run,
+}
+
+/*var configprofileCmd = &cobra.Command{
+    Use: "profile <config profile to activate>",
+    Run: func(cmd *cobra.Command, args []string) {
+        arg := args[0]
+        if arg == "" {
+            fmt.Println("missing args")
+            return
+        }
+        viper.Set("active", arg)
+        err := viper.WriteConfig()
+        if err != nil {
+            fmt.Println("error writing config:", err)
+            return
+        }
+    },
+}*/
+
+var configCmd = &cobra.Command{
+    Use: "config",
+    Run: func(cmd *cobra.Command, args []string) {
+        location := viper.ConfigFileUsed()
+        
+        editor := os.Getenv("EDITOR")
+        if editor == "" {
+            editor = os.Getenv("VISUAL")
+        }
+        if editor == "" {
+            editor = "vi"
+        }
+        ecmd := exec.Command(editor, location)
+        ecmd.Stdin = os.Stdin
+        ecmd.Stdout = os.Stdout
+        ecmd.Stderr = os.Stderr
+
+        if err := ecmd.Run(); err != nil {
+            fmt.Println("error while trying to open editor:", err)
+            return
+        }
+    },
 }
 
 func init() {
@@ -48,7 +96,7 @@ func init() {
     genKeyCmd.Flags().BoolVar(&genKeyDontSet, "dont-set", false, "dont ask for setting the generated key")
     keyCmd.AddCommand(genKeyCmd)
     keyCmd.AddCommand(viewKeyCmd)
-    viewKeyCmd.Flags().BoolVar(&viewKeyShowPrivate, "show-private", false, "show the private key")
+    viewKeyCmd.Flags().BoolVar(&viewKeyShowPrivate, "view-private", false, "show the private key")
     viewKeyCmd.Flags().BoolVar(&viewKeyViewQR, "qr", false, "print the npub as QR in terminal")
     rootCmd.AddCommand(keyCmd)
 
@@ -57,13 +105,19 @@ func init() {
     eventCmd.AddCommand(publishEventCmd)
     rootCmd.AddCommand(eventCmd)
 
-    rootCmd.AddCommand(profileCmd)
+    rootCmd.AddCommand(metaCmd)
 
     relaysCmd.AddCommand(relaysSetCmd)
     relaysCmd.AddCommand(relaysViewCmd)
     relaysCmd.AddCommand(relaysAddCmd)
     relaysCmd.AddCommand(relaysRmCmd)
     rootCmd.AddCommand(relaysCmd)
+
+    rootCmd.AddCommand(configCmd)
+
+    //rootCmd.AddCommand(configprofileCmd)
+
+    rootCmd.AddCommand(feedCmd)
 }
 
 func initConfig() error {
@@ -92,6 +146,11 @@ func initConfig() error {
     if err := viper.ReadInConfig(); err != nil {
         return fmt.Errorf("failed to read config file: %v\n", err)
     }
+
+    /*cfgProfile = viper.GetString("active")
+    if cfgProfile == "" {
+        cfgProfile = "default"
+    }*/
 
     return nil
 }

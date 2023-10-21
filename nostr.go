@@ -1,22 +1,33 @@
 package main
 
 import (
-	"context"
-    "time"
+    "context"
     "errors"
+    "sync"
+    "time"
+    "fmt"
 
-	"github.com/nbd-wtf/go-nostr"
+    "github.com/nbd-wtf/go-nostr"
 )
 
 func getEventFromRelays (filter nostr.Filter, relays []string) (nostr.Event, error) {
 
-    ctx := context.Background()
-    var resultEvents []nostr.Event 
+    fmt.Println("\nGetting event from relays... (this can take a bit depending on how many relays you configured)")
 
-    for _, url := range relays {
+    ctx := context.Background()
+    var resultEvents []nostr.Event
+
+    var wg sync.WaitGroup
+
+    concurrencyLimit := 6
+    taskCh := make(chan string, concurrencyLimit)
+
+    executeTask := func(url string) {
+        defer wg.Done()
+
         relay, err := nostr.RelayConnect(ctx, url)
         if err != nil {
-            continue
+            return
         }
 
         ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -24,13 +35,27 @@ func getEventFromRelays (filter nostr.Filter, relays []string) (nostr.Event, err
 
         sub, err := relay.Subscribe(ctx, nostr.Filters{filter})
         if err != nil {
-            continue
+            return
         }
 
         for ev := range sub.Events {
             resultEvents = append(resultEvents, *ev)
         }
     }
+
+    for _, url := range relays {
+        wg.Add(1)
+        taskCh <- url
+        go func() {
+            for t := range taskCh {
+                executeTask(t)
+            }
+        }()
+    }
+
+    close(taskCh)
+
+    wg.Wait()
 
     if len(resultEvents) < 1 {
         return nostr.Event{}, errors.New("could not find any events on relays")

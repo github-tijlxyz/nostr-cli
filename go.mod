@@ -3,9 +3,14 @@ module github.com/github-tijlxyz/nostr-cli
 go 1.20
 
 require (
+	github.com/inancgumus/screen v0.0.0-20190314163918-06e984b86ed3
+	github.com/mdp/qrterminal/v3 v3.1.1
 	github.com/nbd-wtf/go-nostr v0.24.2
+	github.com/rivo/tview v0.0.0-20231007183732-6c844bdc5f7a
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.17.0
+	golang.org/x/crypto v0.13.0
+	golang.org/x/term v0.12.0
 )
 
 require (
@@ -18,6 +23,8 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/gdamore/encoding v1.0.0 // indirect
+	github.com/gdamore/tcell/v2 v2.6.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.2.0 // indirect
@@ -25,13 +32,15 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mdp/qrterminal/v3 v3.1.1 // indirect
+	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/puzpuzpuz/xsync/v2 v2.5.0 // indirect
+	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect

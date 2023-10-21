@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -13,17 +12,16 @@ import (
 )
 
 func signEvent (event nostr.Event) (nostr.Event, error) {
-    sk := viper.GetString("key")
-    if sk == "" {
-        fmt.Println("key not set")
-        return event, errors.New("key not set")
+    sk, err := getKey()
+    if err != nil {
+        fmt.Println("error getting key:", err)
     }
 
     if event.CreatedAt == 0 {
         event.CreatedAt = nostr.Timestamp(time.Now().Unix())
     }
 
-    err := event.Sign(sk)
+    err = event.Sign(sk)
     if err != nil {
         fmt.Println("error signing event:", err)
         return event, err
@@ -33,6 +31,7 @@ func signEvent (event nostr.Event) (nostr.Event, error) {
 }
 
 func publishEvent (event nostr.Event, relays []string) {
+    fmt.Printf("\nPublishing event %s to relays!\n", event.ID)
     ctx := context.Background()
     fmt.Print("\n")
     for _, url := range relays {
@@ -59,7 +58,7 @@ func publishEvent (event nostr.Event, relays []string) {
 }
 
 var verifyEventCmd = &cobra.Command{
-    Use: "verify <event json>",
+    Use: "verify <'event json'>",
     Args: cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
         arg := args[0]
@@ -86,7 +85,7 @@ var verifyEventCmd = &cobra.Command{
 }
 
 var signEventCmd = &cobra.Command{
-    Use: "sign <event json>",
+    Use: "sign <'event json'>",
     Args: cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
         arg := args[0]
@@ -114,7 +113,7 @@ var signEventCmd = &cobra.Command{
 }
 
 var publishEventCmd = &cobra.Command{
-    Use: "publish <event json>",
+    Use: "publish <'event json'>",
     Args: cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
         arg := args[0]
@@ -126,9 +125,11 @@ var publishEventCmd = &cobra.Command{
             return
         }
 
-        event, err = signEvent(event)
-        if err != nil {
-            return
+        if event.Sig == "" {
+            event, err = signEvent(event)
+            if err != nil {
+                return
+            }
         }
 
         relays := viper.GetStringSlice("relays")
