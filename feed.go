@@ -8,7 +8,6 @@ import (
 	
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 
@@ -22,7 +21,6 @@ var feedSubCmd = &cobra.Command{
             fmt.Println("error decoding arg:", err)
             return
         }
-        relays := viper.GetStringSlice("relays")
 
         gotEvents := map[string]bool{}
         var mutex sync.Mutex

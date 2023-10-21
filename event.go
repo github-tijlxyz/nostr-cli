@@ -8,7 +8,6 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func signEvent (event nostr.Event) (nostr.Event, error) {
@@ -131,8 +130,6 @@ var publishEventCmd = &cobra.Command{
                 return
             }
         }
-
-        relays := viper.GetStringSlice("relays")
 
         if len(relays) < 1 {
             fmt.Println("no relays set")

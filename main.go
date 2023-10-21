@@ -1,18 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"os"
-    "fmt"
-    "path/filepath"
+	"path/filepath"
+	"strings"
+
+	"os/exec"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-    "os/exec"
 )
 
-var cfgFile string
-//var cfgProfile string
-var customRelays string
+var (
+    cfgFile string
+    customRelays string
+    relays []string
+)
 
 var rootCmd = &cobra.Command{
     Use: "nostr-cli [command] [subcommand]",
@@ -89,14 +93,14 @@ var configCmd = &cobra.Command{
 
 func init() {
     rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/nostr-cli/config.yaml)")
-    //rootCmd.PersistentFlags().StringVar(&customRelays, "relays", "", "set relays (by default will use what is in config.yaml)")
+    rootCmd.PersistentFlags().StringVar(&customRelays, "relays", "", "set relays (by default will use what is in config.yaml)")
     
     keyCmd.AddCommand(setKeyCmd)
     genKeyCmd.Flags().BoolVar(&genKeySet, "set", false, "directly set the generated key")
     genKeyCmd.Flags().BoolVar(&genKeyDontSet, "dont-set", false, "dont ask for setting the generated key")
     keyCmd.AddCommand(genKeyCmd)
     keyCmd.AddCommand(viewKeyCmd)
-    viewKeyCmd.Flags().BoolVar(&viewKeyShowPrivate, "view-private", false, "show the private key")
+    viewKeyCmd.Flags().BoolVar(&viewKeyShowPrivate, "private", false, "show the private key")
     viewKeyCmd.Flags().BoolVar(&viewKeyViewQR, "qr", false, "print the npub as QR in terminal")
     rootCmd.AddCommand(keyCmd)
 
@@ -147,10 +151,11 @@ func initConfig() error {
         return fmt.Errorf("failed to read config file: %v\n", err)
     }
 
-    /*cfgProfile = viper.GetString("active")
-    if cfgProfile == "" {
-        cfgProfile = "default"
-    }*/
+    if customRelays == "" {
+        relays = viper.GetStringSlice("relays")
+    } else {
+        relays = strings.Split(customRelays, ",")
+    }
 
     return nil
 }
