@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+    "errors"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ import (
 func signEvent (event nostr.Event) (nostr.Event, error) {
     sk, err := getKey()
     if err != nil {
-        fmt.Println("error getting key:", err)
+        return event, err
     }
 
     if event.CreatedAt == 0 {
@@ -22,14 +23,16 @@ func signEvent (event nostr.Event) (nostr.Event, error) {
 
     err = event.Sign(sk)
     if err != nil {
-        fmt.Println("error signing event:", err)
         return event, err
     }
 
     return event, nil
 }
 
-func publishEvent (event nostr.Event, relays []string) {
+func publishEvent (event nostr.Event, relays []string) error {
+    if len(relays) < 1 {
+        return errors.New("no relays set")
+    }
     fmt.Printf("\nPublishing event %s to relays!\n", event.ID)
     ctx := context.Background()
     fmt.Print("\n")
@@ -54,6 +57,8 @@ func publishEvent (event nostr.Event, relays []string) {
         m := fmt.Sprintf("published to %s", url)
         fmt.Printf("\r%s\n", padString(m, len(messageToReplace)))
     }
+
+    return nil
 }
 
 var verifyEventCmd = &cobra.Command{
@@ -98,6 +103,7 @@ var signEventCmd = &cobra.Command{
 
         event, err = signEvent(event)
         if err != nil {
+            fmt.Println("error signing event:", err)
             return
         }
 
@@ -127,19 +133,16 @@ var publishEventCmd = &cobra.Command{
         if event.Sig == "" {
             event, err = signEvent(event)
             if err != nil {
+                fmt.Println("error signing event:", err)
                 return
             }
         }
 
-        if len(relays) < 1 {
-            fmt.Println("no relays set")
-            return
-        }
-
         // publish the event!
-        publishEvent(event, relays)
+        err = publishEvent(event, relays)
+        if err != nil {
+            fmt.Println("error while publishing event:", err)
+        }
     },
 }
-
-
 

@@ -69,20 +69,17 @@ var profilePublishCmd = &cobra.Command{
                         return
                     }
 
-                    relays := viper.GetStringSlice("relays")
-                    if len(relays) < 1 {
-                        fmt.Println("no relays set")
+                    err = publishEvent(metaEvent, relays)
+                    if err != nil {
+                        fmt.Println("error while publishing event:", err)
                         return
                     }
-
-                    publishEvent(metaEvent, relays)
 
                     if option == "wq" {
                         return
                     }
                 }
             case "l":
-                relays := viper.GetStringSlice("relays")
                 if len(relays) < 1 {
                     fmt.Println("no relays set")
                     return

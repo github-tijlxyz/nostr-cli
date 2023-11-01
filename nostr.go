@@ -19,7 +19,7 @@ func getEventFromRelays (filter nostr.Filter, relays []string) (nostr.Event, err
 
     var wg sync.WaitGroup
 
-    concurrencyLimit := 6
+    concurrencyLimit := 16
     taskCh := make(chan string, concurrencyLimit)
 
     executeTask := func(url string) {
