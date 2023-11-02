@@ -66,6 +66,7 @@ var profilePublishCmd = &cobra.Command{
                     }
 
                     if metaEvent, err = signEvent(metaEvent); err != nil {
+                        fmt.Println("error while signing event:", err)
                         return
                     }
 
