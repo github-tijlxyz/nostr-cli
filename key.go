@@ -220,7 +220,7 @@ func setKey (arg string) {
             return
         }
 
-        cipherKey, err := nip49.Encrypt(key, password, uint8(20), nip49.NotKnownToHaveBeenHandledInsecurely)
+        cipherKey, err := nip49.Encrypt(key, password, uint8(log_n), nip49.NotKnownToHaveBeenHandledInsecurely)
         if err != nil {
             fmt.Println("error encrypting: ", err)
             return

@@ -13,9 +13,11 @@ import (
 )
 
 var (
-    cfgFile string
+    log_n        int = 20
+    cfgFolder    string
+    profileName  string
     customRelays string
-    relays []string
+    relays       []string
 )
 
 var rootCmd = &cobra.Command {
@@ -76,10 +78,13 @@ var configCmd = &cobra.Command{
 }
 
 func init() {
-    rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/nostr-cli/config.yaml)")
-    rootCmd.PersistentFlags().StringVarP(&customRelays, "relays", "r", "", "set relays (by default will use what is in config.yaml)")
+    rootCmd.PersistentFlags().StringVarP(&cfgFolder, "directory", "d", "", "directory to store config files. default is \"$HOME/.config/nostr-cli\". You can also set with the environment variable NOSTR_CLI_DIRECTORY")
+    rootCmd.PersistentFlags().StringVarP(&profileName, "profile", "p", "", "profile default is \"main\". you can also set the profile with the environment variable NOSTR_CLI_PROFILE")
+    rootCmd.PersistentFlags().StringVarP(&customRelays, "relays", "r", "", "use relays (by default will use what is in the config)")
 
+    setKeyCmd.Flags().IntVar(&log_n, "log-n", 22, "number of encryption rounds, set this lower for less powerful devices. set between 16 and 22")
     keyCmd.AddCommand(setKeyCmd)
+    genKeyCmd.Flags().IntVar(&log_n, "log-n", 22, "number of encryption rounds, set this lower for less powerful devices. set between 16 and 22")
     genKeyCmd.Flags().BoolVar(&genKeySet, "set", false, "directly set the generated key")
     genKeyCmd.Flags().BoolVar(&genKeyDontSet, "dont-set", false, "dont ask for setting the generated key")
     keyCmd.AddCommand(genKeyCmd)
@@ -103,21 +108,27 @@ func init() {
 
     rootCmd.AddCommand(configCmd)
 
-    //rootCmd.AddCommand(configprofileCmd)
-
     rootCmd.AddCommand(feedCmd)
 }
 
 func initConfig() error {
-    if cfgFile == "" {
+
+    if profileName == "" {
+        profileName = "main"
+    }
+
+    if cfgFolder == "" {
         home, err := os.UserHomeDir()
         if err != nil {
             return err
         }
-        cfgFile = filepath.Join(home, ".config", "nostr-cli", "config.yaml")
+
+        cfgFolder = filepath.Join(home, ".config", "nostr-cli")
     }
 
-	configDir := filepath.Dir(cfgFile)
+    cfgFile := filepath.Join(cfgFolder, fmt.Sprintf("%s.config.yaml", profileName))
+
+    configDir := filepath.Dir(cfgFile)
 	if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
@@ -150,3 +161,4 @@ func main () {
         os.Exit(1)
     }
 }
+

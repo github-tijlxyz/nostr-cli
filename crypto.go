@@ -3,11 +3,9 @@ package main
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
-	"io"
 
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -16,33 +14,6 @@ const (
     saltSize = 16
     keySize  = 32
 )
-
-func encryptOld(plaintext, password string) (string, error) {
-    
-    salt := make([]byte, saltSize)
-    if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-        return "", err
-    }
-
-    key := pbkdf2.Key([]byte(password), salt, 4096, keySize, sha1.New)
-    block, err := aes.NewCipher(key)
-    if err != nil {
-        return "", err
-    }
-
-    ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-    iv := ciphertext[:aes.BlockSize]
-    if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-        return "", err
-    }
-
-    stream := cipher.NewCFBEncrypter(block, iv)
-    stream.XORKeyStream(ciphertext[aes.BlockSize:], []byte(plaintext))
-
-    result := append(salt, ciphertext...)
-
-    return hex.EncodeToString(result), nil
-}
 
 func decryptOld(ciphertext, password string) (string, error) {
     ciphertextBytes, err := hex.DecodeString(ciphertext)

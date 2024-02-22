@@ -12,7 +12,7 @@ import (
 
 
 var feedSubCmd = &cobra.Command{
-    Short: "sub <'filter json'>",
+    Short: "sub <'json'>",
     Use: "subscribe live to filter",
     Run: func(cmd *cobra.Command, args []string) {
         var filter nostr.Filter

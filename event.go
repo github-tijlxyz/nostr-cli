@@ -62,7 +62,7 @@ func publishEvent (event nostr.Event, relays []string) error {
 }
 
 var verifyEventCmd = &cobra.Command{
-    Use: "verify <'event json'>",
+    Use: "verify <'json'>",
     Args: cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
         arg := args[0]
@@ -89,7 +89,7 @@ var verifyEventCmd = &cobra.Command{
 }
 
 var signEventCmd = &cobra.Command{
-    Use: "sign <'event json'>",
+    Use: "sign <'json'>",
     Args: cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
         arg := args[0]
@@ -118,7 +118,7 @@ var signEventCmd = &cobra.Command{
 }
 
 var publishEventCmd = &cobra.Command{
-    Use: "publish <'event json'>",
+    Use: "publish <'json'>",
     Args: cobra.ExactArgs(1),
     Run: func(cmd *cobra.Command, args []string) {
         arg := args[0]
