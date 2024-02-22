@@ -10,6 +10,7 @@ import (
 	"github.com/mdp/qrterminal/v3"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
+	"github.com/nbd-wtf/go-nostr/nip49"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/term"
@@ -219,14 +220,14 @@ func setKey (arg string) {
             return
         }
 
-        cipherKey, err := encrypt(key, password)
+        cipherKey, err := nip49.Encrypt(key, password, uint8(20), nip49.NotKnownToHaveBeenHandledInsecurely)
         if err != nil {
             fmt.Println("error encrypting: ", err)
             return
         }
 
         viper.Set("key.public", publicKey)
-        viper.Set("key.encryption", "aes256+pbkdf2")
+        viper.Set("key.encryption", "nip49")
         viper.Set("key.secret", cipherKey)
     }
 
@@ -245,7 +246,7 @@ func getKey () (string, error) {
     if encryptionType == "none" {
         key := viper.GetString("key.secret")
         return key, nil
-    } else if encryptionType == "aes256+pbkdf2" {
+    } else { 
 
         cipherKey := viper.GetString("key.secret")
 
@@ -260,20 +261,41 @@ func getKey () (string, error) {
 
         password := strings.TrimSpace(string(passwordBytes))
 
-        key, err := decrypt(cipherKey, password)
-        if err != nil {
-            return "", err
+
+        if encryptionType == "nip49" {
+
+            key, err := nip49.Decrypt(cipherKey, password)
+            if err != nil {
+                return "", err
+            }
+
+            _, err = nip19.EncodePrivateKey(key)
+            if err != nil {
+                return "", errors.New("probably wrong password")
+            }
+
+            return key, nil
+
+        } else if encryptionType == "aes256+pbkdf2" {
+
+
+            key, err := decryptOld(cipherKey, password)
+            if err != nil {
+                return "", err
+            }
+
+            _, err = nip19.EncodePrivateKey(key)
+            if err != nil {
+                return "", errors.New("probably wrong password")
+            }
+
+            return key, nil
+
+        } else {
+            return "", errors.New("key not key or invalid encryption")
         }
 
-        _, err = nip19.EncodePrivateKey(key)
-        if err != nil {
-            return "", errors.New("probably wrong password")
-        }
-
-        return key, nil
-
-    } else {
-        return "", errors.New("key not key or invalid encryption")
     }
+
 }
 

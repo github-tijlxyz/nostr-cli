@@ -1,14 +1,15 @@
 package main
 
 import (
-    "crypto/aes"
-    "crypto/cipher"
-    "crypto/rand"
-    "crypto/sha1"
-    "encoding/hex"
-    "golang.org/x/crypto/pbkdf2"
-    "io"
-    "errors"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha1"
+	"encoding/hex"
+	"errors"
+	"io"
+
+	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
@@ -16,7 +17,8 @@ const (
     keySize  = 32
 )
 
-func encrypt(plaintext, password string) (string, error) {
+func encryptOld(plaintext, password string) (string, error) {
+    
     salt := make([]byte, saltSize)
     if _, err := io.ReadFull(rand.Reader, salt); err != nil {
         return "", err
@@ -42,7 +44,7 @@ func encrypt(plaintext, password string) (string, error) {
     return hex.EncodeToString(result), nil
 }
 
-func decrypt(ciphertext, password string) (string, error) {
+func decryptOld(ciphertext, password string) (string, error) {
     ciphertextBytes, err := hex.DecodeString(ciphertext)
     if err != nil {
         return "", err

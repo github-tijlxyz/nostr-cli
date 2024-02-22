@@ -47,7 +47,7 @@ func publishEvent (event nostr.Event, relays []string) error {
             continue
         }
 
-        _, err = relay.Publish(ctx, event)
+        err = relay.Publish(ctx, event)
         if err != nil {
             m := fmt.Sprintf("error while publishing to %v: %v", url, err)
             fmt.Printf("\r%s\n", padString(m, len(messageToReplace)))

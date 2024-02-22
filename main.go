@@ -21,7 +21,7 @@ var (
 var rootCmd = &cobra.Command {
     Use: "nostr-cli [command] [subcommand]",
     Short: "A command line interface for nostr",
-    Version: "0.1.1",
+    Version: "0.1.3",
     PersistentPreRunE: func (cmd *cobra.Command, args []string) error {
         return initConfig()
     },
@@ -76,8 +76,8 @@ var configCmd = &cobra.Command{
 }
 
 func init() {
-    rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/nostr-cli/config.yaml)")
-    rootCmd.PersistentFlags().StringVar(&customRelays, "relays", "", "set relays (by default will use what is in config.yaml)")
+    rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default is $HOME/.config/nostr-cli/config.yaml)")
+    rootCmd.PersistentFlags().StringVarP(&customRelays, "relays", "r", "", "set relays (by default will use what is in config.yaml)")
 
     keyCmd.AddCommand(setKeyCmd)
     genKeyCmd.Flags().BoolVar(&genKeySet, "set", false, "directly set the generated key")
