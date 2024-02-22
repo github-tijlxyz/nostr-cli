@@ -23,7 +23,7 @@ var (
 var rootCmd = &cobra.Command {
     Use: "nostr-cli [command] [subcommand]",
     Short: "A command line interface for nostr",
-    Version: "0.1.3",
+    Version: "0.2.0",
     PersistentPreRunE: func (cmd *cobra.Command, args []string) error {
         return initConfig()
     },
