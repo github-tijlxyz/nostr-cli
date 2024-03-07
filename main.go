@@ -1,164 +1,264 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"os/exec"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip19"
+	"github.com/urfave/cli/v2"
+	"gopkg.in/yaml.v3"
 )
+
+type Index struct {
+	ActiveProfile string `yaml:"activeprofile"`
+}
+
+type Profile struct {
+	Key struct {
+		Public     string `yaml:"public"`
+		Encryption string `yaml:"encryption"`
+		Private    string `yaml:"private"`
+	} `yaml:"key"`
+	Metadata map[string][]map[string]interface{} `yaml:"metadata"`
+}
 
 var (
-    log_n        int = 20
-    cfgFolder    string
-    profileName  string
-    customRelays string
-    relays       []string
+	index         Index
+	openedProfile string
+	s             Profile
 )
 
-var rootCmd = &cobra.Command {
-    Use: "nostr-cli [command] [subcommand]",
-    Short: "A command line interface for nostr",
-    Version: "0.2.0",
-    PersistentPreRunE: func (cmd *cobra.Command, args []string) error {
-        return initConfig()
-    },
-}
+func main() {
+	app := &cli.App{
+		Name:        "nostr-cli",
+		Description: "some nostr cli tools",
+		Version:     "0.3.0",
+		Before: func(ctx *cli.Context) error {
 
-var keyCmd = &cobra.Command{
-    Use: "key [command]",
-    Run: viewKeyCmd.Run,
-}
+			directory := ctx.String("directory")
 
-var eventCmd = &cobra.Command{
-    Use: "event <command>",
-}
+			// Load index (for active profile)
+			indexFile, err := os.ReadFile(filepath.Join(directory, "index.yaml"))
+			if !errors.Is(err, os.ErrNotExist) {
 
-var relaysCmd = &cobra.Command{
-    Use: "relays [command]",
-    Run: relaysViewCmd.Run,
-}
+				if err != nil {
+					return err
+				}
+				err = yaml.Unmarshal(indexFile, &index)
+				if err != nil {
+					return err
+				}
+			} else {
+				index = Index{
+					ActiveProfile: "main",
+				}
+			}
 
-var metaCmd = &cobra.Command{
-    Use: "metadata [command]",
-    Run: profilePublishCmd.Run,
-}
+			if index.ActiveProfile == "" {
+				index.ActiveProfile = "main"
+			}
 
-var feedCmd = &cobra.Command{
-    Use: "feed [command]",
-    Run: feedSubCmd.Run,
-}
+			// Load config
+			openedProfile = index.ActiveProfile
+			configFile, err := os.ReadFile(filepath.Join(directory, fmt.Sprintf("%s.profile.yaml", index.ActiveProfile)))
+			if !errors.Is(err, os.ErrNotExist) {
+				if err != nil {
+					return err
+				}
+				err = yaml.Unmarshal(configFile, &s)
+				if err != nil {
+					return err
+				}
+			} else {
+				s = Profile{}
+			}
 
-var configCmd = &cobra.Command{
-    Use: "config",
-    Run: func(cmd *cobra.Command, args []string) {
-        location := viper.ConfigFileUsed()
-        
-        editor := os.Getenv("EDITOR")
-        if editor == "" {
-            editor = os.Getenv("VISUAL")
-        }
-        if editor == "" {
-            editor = "vi"
-        }
-        ecmd := exec.Command(editor, location)
-        ecmd.Stdin = os.Stdin
-        ecmd.Stdout = os.Stdout
-        ecmd.Stderr = os.Stderr
+			return nil
+		},
+		After: func(ctx *cli.Context) error {
 
-        if err := ecmd.Run(); err != nil {
-            fmt.Println("error while trying to open editor:", err)
-            return
-        }
-    },
-}
+			directory := ctx.String("directory")
 
-func init() {
-    rootCmd.PersistentFlags().StringVarP(&cfgFolder, "directory", "d", "", "directory to store config files. default is \"$HOME/.config/nostr-cli\". You can also set with the environment variable NOSTR_CLI_DIRECTORY")
-    rootCmd.PersistentFlags().StringVarP(&profileName, "profile", "p", "", "profile default is \"main\". you can also set the profile with the environment variable NOSTR_CLI_PROFILE")
-    rootCmd.PersistentFlags().StringVarP(&customRelays, "relays", "r", "", "use relays (by default will use what is in the config)")
+			// Save index (for active profile)
+			indexYaml, err := yaml.Marshal(&index)
+			if err != nil {
+				return err
+			}
+			err = os.WriteFile(filepath.Join(directory, "index.yaml"), indexYaml, 0644)
+			if err != nil {
+				return err
+			}
 
-    setKeyCmd.Flags().IntVar(&log_n, "log-n", 22, "number of encryption rounds, set this lower for less powerful devices. set between 16 and 22")
-    keyCmd.AddCommand(setKeyCmd)
-    genKeyCmd.Flags().IntVar(&log_n, "log-n", 22, "number of encryption rounds, set this lower for less powerful devices. set between 16 and 22")
-    genKeyCmd.Flags().BoolVar(&genKeySet, "set", false, "directly set the generated key")
-    genKeyCmd.Flags().BoolVar(&genKeyDontSet, "dont-set", false, "dont ask for setting the generated key")
-    keyCmd.AddCommand(genKeyCmd)
-    keyCmd.AddCommand(viewKeyCmd)
-    viewKeyCmd.Flags().BoolVar(&viewKeyShowPrivate, "private", false, "show the private key")
-    viewKeyCmd.Flags().BoolVar(&viewKeyViewQR, "qr", false, "print the npub as QR in terminal")
-    rootCmd.AddCommand(keyCmd)
+			// Save config
+			if openedProfile == index.ActiveProfile {
+				configYaml, err := yaml.Marshal(&s)
+				if err != nil {
+					return err
+				}
+				err = os.WriteFile(filepath.Join(directory, fmt.Sprintf("%s.profile.yaml", index.ActiveProfile)), configYaml, 0644)
+				if err != nil {
+					return err
+				}
+			}
 
-    eventCmd.AddCommand(signEventCmd)
-    eventCmd.AddCommand(verifyEventCmd)
-    eventCmd.AddCommand(publishEventCmd)
-    rootCmd.AddCommand(eventCmd)
+			return nil
+		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "directory",
+				Aliases: []string{"d"},
+				Value:   getDefaultPath(),
+				Usage:   "directory to save profile files and other data",
+				EnvVars: []string{"NOSTR_CLI_DIRECTORY"},
+			},
+		},
+		Commands: []*cli.Command{
+			&cli.Command{
+				Name:    "event",
+				Aliases: []string{"ev"},
+				Subcommands: []*cli.Command{
+					&cli.Command{
+						Name:      "sign",
+						Args:      true,
+						ArgsUsage: "event json",
+						Action: func(ctx *cli.Context) error {
+							var event nostr.Event
+							err := json.Unmarshal([]byte(ctx.Args().First()), &event)
+							if err != nil {
+								return err
+							}
+							signed, err := signEvent(event)
+							if err != nil {
+								return err
+							}
+							signedString, err := json.Marshal(signed)
+							if err != nil {
+								return err
+							}
 
-    rootCmd.AddCommand(metaCmd)
+							fmt.Println(signedString)
 
-    relaysCmd.AddCommand(relaysSetCmd)
-    relaysCmd.AddCommand(relaysViewCmd)
-    relaysCmd.AddCommand(relaysAddCmd)
-    relaysCmd.AddCommand(relaysRmCmd)
-    rootCmd.AddCommand(relaysCmd)
+							return nil
+						},
+					},
+					&cli.Command{
+						Name:      "publish",
+						Args:      true,
+						ArgsUsage: "event json",
+						Action: func(ctx *cli.Context) error {
+							var event nostr.Event
+							err := json.Unmarshal([]byte(ctx.Args().First()), &event)
+							if err != nil {
+								return err
+							}
+							if event.Sig == "" {
+								event, err = signEvent(event)
+								if err != nil {
+									return err
+								}
+							}
 
-    rootCmd.AddCommand(configCmd)
+							err = publishEvent(event, []string{})
 
-    rootCmd.AddCommand(feedCmd)
-}
+							return nil
+						},
+					},
+					&cli.Command{
+						Name:      "verify",
+						Args:      true,
+						ArgsUsage: "event json",
+						Action: func(ctx *cli.Context) error {
+							var event nostr.Event
+							err := json.Unmarshal([]byte(ctx.Args().First()), &event)
+							if err != nil {
+								return err
+							}
+							verified, err := event.CheckSignature()
+							if err != nil {
+								return err
+							}
+							if verified {
+								fmt.Println("valid")
+							} else {
+								fmt.Println("invalid")
+							}
+							return nil
+						},
+					},
+				},
+			},
+			&cli.Command{
+				Name: "key",
+				Subcommands: []*cli.Command{
+					&cli.Command{
+						Name: "set",
+					},
+					&cli.Command{
+						Name: "generate",
+						Action: func(ctx *cli.Context) error {
+							sk := nostr.GeneratePrivateKey()
+							nsec, err := nip19.EncodePrivateKey(sk)
+							pk, err := nostr.GetPublicKey(sk)
+							npub, err := nip19.EncodePublicKey(pk)
+							if err != nil {
+								return err
+							}
 
-func initConfig() error {
+							fmt.Printf("\nnpub: %s\nnsec: %s\n\n", npub, nsec)
 
-    if profileName == "" {
-        profileName = "main"
-    }
+							set := confirm(fmt.Sprintf("do you want to set this keypair for profile '%s'", index.ActiveProfile), false)
+							if set {
+								err = setKey(nsec)
+								if err != nil {
+									return err
+								}
+							}
 
-    if cfgFolder == "" {
-        home, err := os.UserHomeDir()
-        if err != nil {
-            return err
-        }
+							return nil
+						},
+					},
+				},
+			},
+			&cli.Command{
+				Name:      "profile",
+				Args:      true,
+				ArgsUsage: "change to profile",
+				Action: func(ctx *cli.Context) error {
+					if ctx.Args().First() != "" {
+						index.ActiveProfile = ctx.Args().First()
+					}
+					fmt.Println(index.ActiveProfile)
+					return nil
+				},
+			},
+			&cli.Command{
+				Name: "profiles",
+                Action: func(ctx *cli.Context) error {
+                    directory := ctx.String("directory")
+                    files, err := os.ReadDir(directory)
+                    if err != nil {
+                        return err
+                    }
+                    for _, file := range files {
+                        if strings.HasSuffix(file.Name(), ".profile.yaml") {
+                            fmt.Println(strings.TrimSuffix(file.Name(), ".profile.yaml"))
+                        }
+                    }
 
-        cfgFolder = filepath.Join(home, ".config", "nostr-cli")
-    }
-
-    cfgFile := filepath.Join(cfgFolder, fmt.Sprintf("%s.config.yaml", profileName))
-
-    configDir := filepath.Dir(cfgFile)
-	if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+                    return nil
+                },
+			},
+		},
 	}
 
-	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
-		defaultConfig := []byte{} 
-		if err := os.WriteFile(cfgFile, defaultConfig, os.ModePerm); err != nil {
-			return fmt.Errorf("failed to create config file: %w", err)
-		}
-    }
-
-    viper.SetConfigFile(cfgFile)
-
-    if err := viper.ReadInConfig(); err != nil {
-        return fmt.Errorf("failed to read config file: %v\n", err)
-    }
-
-    if customRelays == "" {
-        relays = viper.GetStringSlice("relays")
-    } else {
-        relays = strings.Split(customRelays, ",")
-    }
-
-    return nil
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatalln("error:", err)
+	}
 }
-
-func main () {
-    if err := rootCmd.Execute(); err != nil {
-        fmt.Println(err)
-        os.Exit(1)
-    }
-}
-

@@ -4,38 +4,59 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
-func getPublicKey () string {
-    publicKey := viper.GetString("key.public")
-    if publicKey == "" {
-        fmt.Println("key not set")
-        return ""
-    }
-    return publicKey
+func padString(input string, length int) string {
+	if len(input) >= length {
+		return input
+	}
+	return input + " " + strings.Repeat(" ", length-len(input)-1)
 }
 
-func padString (input string, length int) string {
-    if len(input) >= length {
-        return input
-    }
-    return input + " " + strings.Repeat(" ", length-len(input)-1)
+func getUserInput(prompt string) string {
+	fmt.Print(prompt)
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	return strings.TrimSpace(input)
 }
 
-func getUserInput (prompt string) string {
-    fmt.Print(prompt)
-    reader := bufio.NewReader(os.Stdin)
-    input, _ := reader.ReadString('\n')
-    return strings.TrimSpace(input)
+func getDefaultPath() string {
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	return filepath.Join(home, ".config", "nostr-cli")
+
 }
 
-func truncateString (s string) string {
-    //l := 40
-    //if len(s) > l {
-    //    return s[:l-3] + "..."
-    //}
-    return s
+func confirm(prompt string, defaultValue bool) bool {
+	reader := bufio.NewReader(os.Stdin)
+
+	var s string
+
+	if defaultValue {
+		fmt.Printf("%s [Y/n]: ", prompt)
+	} else {
+		fmt.Printf("%s [y/N]: ", prompt)
+	}
+
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		panic(err)
+	}
+
+	s = strings.TrimSpace(strings.ToLower(input[:len(input)-1]))
+
+	switch s {
+	case "y", "yes":
+		return true
+	case "n", "no":
+		return false
+	default:
+		// If no valid input is provided, use the default value.
+		return defaultValue
+	}
 }

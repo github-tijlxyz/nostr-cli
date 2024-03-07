@@ -1,73 +1,60 @@
 package main
 
 import (
-    "context"
-    "errors"
-    "sync"
-    "time"
-    "fmt"
+	"context"
+	"errors"
+	"fmt"
+	"time"
 
-    "github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr"
 )
 
-func getEventFromRelays (filter nostr.Filter, relays []string) (nostr.Event, error) {
+func signEvent(event nostr.Event) (nostr.Event, error) {
+	sk, err := getKey()
+	if err != nil {
+		return event, err
+	}
 
-    fmt.Println("\nGetting event from relays... (this can take a bit depending on how many relays you configured)")
+	if event.CreatedAt == 0 {
+		event.CreatedAt = nostr.Timestamp(time.Now().Unix())
+	}
 
-    ctx := context.Background()
-    var resultEvents []nostr.Event
+	err = event.Sign(sk)
+	if err != nil {
+		return event, err
+	}
 
-    var wg sync.WaitGroup
+	return event, nil
+}
 
-    concurrencyLimit := 16
-    taskCh := make(chan string, concurrencyLimit)
+func publishEvent(event nostr.Event, relays []string) error {
+	if len(relays) < 1 {
+		return errors.New("no relays too publish to")
+	}
+	fmt.Printf("\nPublishing event %s to relays!\n", event.ID)
+	ctx := context.Background()
+	fmt.Print("\n")
+	for _, url := range relays {
+		messageToReplace := fmt.Sprintf("publishing to %s...", url)
+		fmt.Print(messageToReplace)
 
-    executeTask := func(url string) {
-        defer wg.Done()
+		relay, err := nostr.RelayConnect(ctx, url)
+		if err != nil {
+			m := fmt.Sprintf("error while connecting to %v: %v", url, err)
+			fmt.Printf("\r%s\n", padString(m, len(messageToReplace)))
+			continue
+		}
 
-        relay, err := nostr.RelayConnect(ctx, url)
-        if err != nil {
-            return
-        }
+		err = relay.Publish(ctx, event)
+		if err != nil {
+			m := fmt.Sprintf("error while publishing to %v: %v", url, err)
+			fmt.Printf("\r%s\n", padString(m, len(messageToReplace)))
+			continue
+		}
 
-        ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-        defer cancel()
+		m := fmt.Sprintf("published to %s", url)
+		fmt.Printf("\r%s\n", padString(m, len(messageToReplace)))
+	}
 
-        sub, err := relay.Subscribe(ctx, nostr.Filters{filter})
-        if err != nil {
-            return
-        }
-
-        for ev := range sub.Events {
-            resultEvents = append(resultEvents, *ev)
-        }
-    }
-
-    for _, url := range relays {
-        wg.Add(1)
-        taskCh <- url
-        go func() {
-            for t := range taskCh {
-                executeTask(t)
-            }
-        }()
-    }
-
-    close(taskCh)
-
-    wg.Wait()
-
-    if len(resultEvents) < 1 {
-        return nostr.Event{}, errors.New("could not find any events on relays")
-    }
-
-    var latestEvent nostr.Event
-
-    for _, event := range resultEvents {
-        if event.CreatedAt > latestEvent.CreatedAt {
-            latestEvent = event
-        }
-    }
-
-    return latestEvent, nil
+	return nil
 }

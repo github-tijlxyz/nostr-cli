@@ -3,299 +3,127 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
+	"log"
 	"strings"
 	"syscall"
 
-	"github.com/mdp/qrterminal/v3"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
 	"github.com/nbd-wtf/go-nostr/nip49"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"golang.org/x/term"
 )
 
-var genKeySet bool
-var genKeyDontSet bool
-var viewKeyViewQR bool 
-var viewKeyShowPrivate bool
+func setKey(nsec string) error {
+	var err error
+	if !strings.HasPrefix(nsec, "nsec1") {
+		nsec, err = nip19.EncodePrivateKey(nsec)
+		if err != nil {
+			log.Println("a")
+			return err
+		}
+	}
 
-var genKeyCmd = &cobra.Command{
-    Use: "generate",
-    Short: "Generate a new nostr keypair",   
-    Run: func(cmd *cobra.Command, args []string) {
-        sk := nostr.GeneratePrivateKey()
-        pk, _ := nostr.GetPublicKey(sk)
-        nsec, _ := nip19.EncodePrivateKey(sk)
-        npub, _ := nip19.EncodePublicKey(pk)
+	prefix, privateKeyAny, err := nip19.Decode(nsec)
+	if err != nil {
 
-        fmt.Println("Generated Key:")
-        fmt.Println("private key:", sk)
-        fmt.Println("public key:", pk)
-        fmt.Println("nsec:", nsec)
-        fmt.Println("npub:", npub)
+		log.Println("b")
+		return err
+	}
+	if prefix != "nsec" {
 
-        if genKeyDontSet {
-            return
-        }
+		log.Println("c")
+		return errors.New("not a nsec")
+	}
+	privateKey := privateKeyAny.(string)
 
-        if !genKeySet {
-            // set it as input?
-            fmt.Print("\nDo you want to set this nostr keypair as private key for nostr-cli? [y/N]: ")
-            var input string
-            _, err := fmt.Scanln(&input)
-            if err != nil {
-                return
-            }
-            input = strings.TrimSpace(strings.ToLower(input))
-            switch input {
-            case "y", "yes":
-                setKey(sk)
-            case "n", "no":
-                return
-            default:
-                return
-            }
-        } else if genKeySet {
-            fmt.Print("\n")
-            setKey(sk)
-        }
+	publicKey, err := nostr.GetPublicKey(privateKey)
+	if err != nil {
+		log.Println("d")
+		return err
+	}
+	npub, err := nip19.EncodePublicKey(publicKey)
+	if err != nil {
+		log.Println("e")
+		return err
+	}
 
+	if len(s.Metadata) != 0 {
+		c := confirm(fmt.Sprintf("do you want to remove existing metadata for profile '%s'?", index.ActiveProfile), false)
+		if c {
+			s.Metadata = make(map[string][]map[string]interface{})
+		}
+	}
 
-    },
+	c := confirm("do you want to encrypt the private key?", true)
+	if !c {
+		s.Key.Encryption = "none"
+		s.Key.Private = nsec
+		s.Key.Public = npub
+	} else {
+		fmt.Printf("\nNew encryption passpharse: ")
+		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+		password := strings.TrimSpace(string(bytePassword))
+
+		fmt.Printf("\nConfirm encryption passpharse: ")
+		byteConfirmPassword, err := term.ReadPassword(int(syscall.Stdin))
+		confirmPassword := strings.TrimSpace(string(byteConfirmPassword))
+
+		if err != nil {
+			return err
+		}
+
+		if password != confirmPassword {
+			return errors.New("passwords did not match")
+		}
+
+		fmt.Println()
+
+		cipherKey, err := nip49.Encrypt(privateKey, password, uint8(21), nip49.ClientDoesNotTrackThisData)
+		if err != nil {
+			return err
+		}
+
+		s.Key.Encryption = "nip49"
+		s.Key.Public = npub
+		s.Key.Private = cipherKey
+	}
+
+	return nil
 }
 
-var viewKeyCmd = &cobra.Command{
-    Use: "view",
-    Short: "View the currently used key",
-    Run: func(cmd *cobra.Command, args []string) {
-        var (
-            nsec string = ""
-            npub string = ""
-            privateKey string = ""
-            publicKey string = ""
-            err error
-        )
-
-        if viewKeyShowPrivate == true {
-            privateKey, err = getKey()
-            if err != nil {
-                fmt.Println("error while getting key:", err)
-                return
-            }
-            if privateKey == "" {
-                fmt.Println("key not set")
-            }
-            publicKey, err = nostr.GetPublicKey(privateKey)
-            if err != nil {
-                fmt.Println("error while getting key:", err)
-                return
-            }
-        } else {
-            publicKey = viper.GetString("key.public")
-            if publicKey == "" {
-                fmt.Println("key not set")
-            }
-        }
-
-
-        if publicKey != "" {
-            npub, err = nip19.EncodePublicKey(publicKey)
-            if err != nil {
-                fmt.Println("error encoding npub:", err)
-                return
-            }
-            fmt.Println("public key:", publicKey)
-            fmt.Println("npub:", npub)
-            if viewKeyViewQR == true {
-                fmt.Print("\n")
-                qrterminal.Generate(npub, qrterminal.L, os.Stdout)
-                fmt.Print("\n")
-            }
-        }
-        if privateKey != "" {
-            nsec, err = nip19.EncodePrivateKey(privateKey)
-            if err != nil {
-                fmt.Println("error encoding nsec:", err)
-                return
-            }
-            fmt.Println("private key:", privateKey)
-            fmt.Println("nsec:", nsec)
-        }
-
-    },
+func getKey() (string, error) {
+	if s.Key.Public == "" || s.Key.Private == "" {
+		return "", errors.New("key not set")
+	}
+	if s.Key.Encryption == "nip49" {
+		fmt.Printf("\nPlease enter the passpharse to decrypt the private key:")
+		passwordBytes, err := term.ReadPassword(int(syscall.Stdin))
+		fmt.Print("\n")
+		if err != nil {
+			return "", err
+		}
+		password := strings.TrimSpace(string(passwordBytes))
+		key, err := nip49.Decrypt(s.Key.Private, password)
+		if err != nil {
+			return "", err
+		}
+		_, err = nip19.EncodePrivateKey(key)
+		if err != nil {
+			return "", errors.Join(errors.New("HINT: probably wrong password"), err)
+		}
+		return key, nil
+	} else if s.Key.Encryption == "none" {
+		if strings.HasPrefix(s.Key.Private, "nsec") {
+			prefix, privateKey, err := nip19.Decode(s.Key.Private)
+			if err != nil {
+				return "", err
+			}
+			if prefix != "nsec" {
+				return "", errors.New("not a nsec")
+			}
+			return privateKey.(string), nil
+		}
+		return s.Key.Private, nil
+	}
+	return "", errors.New("invalid encryption method")
 }
-
-var setKeyCmd = &cobra.Command{
-    Use: "set",
-    Short: "set new private key",
-    Run: func(cmd *cobra.Command, args []string) {
-        fmt.Print("enter new private key: ")
-        inputBytes, err := term.ReadPassword(int(syscall.Stdin))
-        input := strings.TrimSpace(string(inputBytes))
-        if err != nil {
-            fmt.Println("error while reading input:", err)
-            return
-        }
-        fmt.Print("\n")
-        setKey(input)
-    },
-}
-
-func setKey (arg string) {
-    key := arg
-
-    if strings.HasPrefix(key, "nsec1") {
-        // decode nsec
-        _, decoded, err := nip19.Decode(key)
-        if err != nil {
-            fmt.Println("Invalid Key:", err)
-            return
-        }
-        key = decoded.(string)
-    } else {
-        // check if we can encode to nsec
-        _, err := nip19.EncodePrivateKey(key)
-        if err != nil {
-            fmt.Println("Invalid Key:", err)
-            return
-        }
-    }
-
-    publicKey, err := nostr.GetPublicKey(key)
-    if err != nil {
-        fmt.Println("error getting public key:", err)
-        return
-    }
-
-    fmt.Print("Do you want to remove existing metadata? [y/N]: ")
-    var input string = ""
-    _, err = fmt.Scanln(&input)
-    /*if err != nil {
-        fmt.Println("error getting input:", err)
-        return
-    }*/
-    input = strings.TrimSpace(strings.ToLower(input))
-    switch input {
-    case "y", "yes":
-        clearMeta := &UserArgs{}
-        viper.Set("metadata", clearMeta)
-    default:
-        //return
-    }
-
-    // encrypt the key?
-    fmt.Print("\nDo you want to use encryption to store the private key? [Y/n]: ")
-    input = ""
-    _, err = fmt.Scanln(&input)
-    /*if err != nil {
-        fmt.Println("error getting input:", err)
-        return
-    }*/
-    input = strings.TrimSpace(strings.ToLower(input))
-    switch input {
-    case "n", "no":
-        viper.Set("key.public", publicKey)
-        viper.Set("key.encryption", "none")
-        viper.Set("key.secret", key)
-    default:
-        fmt.Print("\nEnter encryption passpharse: ")
-        bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-        password := strings.TrimSpace(string(bytePassword))
-
-        fmt.Print("\nConfirm encryption passpharse: ")
-        byteConfirmPassword, err := term.ReadPassword(int(syscall.Stdin))
-        confirmPassword := strings.TrimSpace(string(byteConfirmPassword))
-
-        if err != nil {
-            fmt.Println("error reading password:", err)
-            return
-        }
-
-        fmt.Print("\n")
-
-        if password != confirmPassword {
-            fmt.Println("did not match")
-            return
-        }
-
-        cipherKey, err := nip49.Encrypt(key, password, uint8(log_n), nip49.NotKnownToHaveBeenHandledInsecurely)
-        if err != nil {
-            fmt.Println("error encrypting: ", err)
-            return
-        }
-
-        viper.Set("key.public", publicKey)
-        viper.Set("key.encryption", "nip49")
-        viper.Set("key.secret", cipherKey)
-    }
-
-    err = viper.WriteConfig()
-    if err != nil {
-        fmt.Println("Failed to write config file:", err)
-        return
-    }
-
-    fmt.Println("private key set")
-}
-
-func getKey () (string, error) {
-    encryptionType := viper.GetString("key.encryption")
-
-    if encryptionType == "none" {
-        key := viper.GetString("key.secret")
-        return key, nil
-    } else { 
-
-        cipherKey := viper.GetString("key.secret")
-
-        fmt.Print("\nPlease enter your passpharse to decrypt the private key: ")
-        passwordBytes, err := term.ReadPassword(int(syscall.Stdin))
-
-        fmt.Print("\n\n")
-
-        if err != nil {
-            return "", err
-        }
-
-        password := strings.TrimSpace(string(passwordBytes))
-
-
-        if encryptionType == "nip49" {
-
-            key, err := nip49.Decrypt(cipherKey, password)
-            if err != nil {
-                return "", err
-            }
-
-            _, err = nip19.EncodePrivateKey(key)
-            if err != nil {
-                return "", errors.New("probably wrong password")
-            }
-
-            return key, nil
-
-        } else if encryptionType == "aes256+pbkdf2" {
-
-
-            key, err := decryptOld(cipherKey, password)
-            if err != nil {
-                return "", err
-            }
-
-            _, err = nip19.EncodePrivateKey(key)
-            if err != nil {
-                return "", errors.New("probably wrong password")
-            }
-
-            return key, nil
-
-        } else {
-            return "", errors.New("key not key or invalid encryption")
-        }
-
-    }
-
-}
-
