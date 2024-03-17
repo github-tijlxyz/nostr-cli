@@ -239,20 +239,20 @@ func main() {
 			},
 			&cli.Command{
 				Name: "profiles",
-                Action: func(ctx *cli.Context) error {
-                    directory := ctx.String("directory")
-                    files, err := os.ReadDir(directory)
-                    if err != nil {
-                        return err
-                    }
-                    for _, file := range files {
-                        if strings.HasSuffix(file.Name(), ".profile.yaml") {
-                            fmt.Println(strings.TrimSuffix(file.Name(), ".profile.yaml"))
-                        }
-                    }
+				Action: func(ctx *cli.Context) error {
+					directory := ctx.String("directory")
+					files, err := os.ReadDir(directory)
+					if err != nil {
+						return err
+					}
+					for _, file := range files {
+						if strings.HasSuffix(file.Name(), ".profile.yaml") {
+							fmt.Println(strings.TrimSuffix(file.Name(), ".profile.yaml"))
+						}
+					}
 
-                    return nil
-                },
+					return nil
+				},
 			},
 		},
 	}
